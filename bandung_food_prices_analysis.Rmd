@@ -1,0 +1,294 @@
+---
+title: "Analisis Harga Cabai & Bawang Kota Bandung"
+subtitle: "Persiapan menjelang Hari Raya Lebaran 2021"
+author: Stefanus Hermawan
+date: March 30, 2020
+output:
+  html_notebook:
+    toc: true
+    toc_float: true 
+    toc_depth: 3
+---
+
+\
+
+# **Latar Belakang**
+
+Latar belakang dari pengerjaan analisis ini muncul setelah mendengar obrolan tentang keluhan ibu bersama dengan para tetangga karena tingginya harga bahan pangan khususnya bahan utama masakan seperti cabai, bawang dan daging sapi menjelang Hari Natal, Tahun Baru, serta Hari Raya Lebaran. \
+
+Tujuan utama dari analisis ini adalah mencoba untuk membantu para ibu - ibu khususnya yang berdomisili di Kota Bandung mendapatkan informasi terkait pola pergerakan harga pangan serta memberikan rekomendasi perkiraan kapan sebaiknya bahan pangan dibeli menjelang Hari Raya Lebaran 2021.
+
+\
+
+# **Dataset**
+Dataset harga pangan Kota Bandung diperoleh dari website [hargapangan.id](https://hargapangan.id) yang sebelumnya telah saya lakukan transformasi menggunakan *Python & Pandas* serta tersedia di repository [Github](https://github.com/stefkim/bandung_food_prices_dataset). 
+
+## **Deskripsi Dataset**
+- **tanggal**  : dd-mm-yyyy
+- **beras** : 
+\
+harga rata - rata dari:
+    - Beras Kualitas Bawah I
+    - Beras Kualitas Bawah II
+    - Beras Kualitas Medium I 
+    - Beras Kualitas Medium II 
+    - Beras Kualitas Super I 
+    - Beras Kualitas Super II 
+
+- **beras_kb1** : harga Beras Kualitas Bawah I
+- **beras_kb2** : harga Beras Kualitas Bawah II
+- **beras_km1** : harga Beras Kualitas Medium I
+- **beras_km2** : harga Beras Kualitas Medium II 
+- **beras_ks1** : harga Beras Kualitas Super I 
+- **beras_ks2** : harga Beras Kualitas Super II
+- **daging_ayam** : harga rata - rata daging ayam ras segar
+- **daging_ayam_rs** : harga daging ayam ras segar
+- **daging_sapi** : harga rata - rata daging sapi kualitas 1 dan kualitas 2
+- **daging_sapi_k1** :  harga daging sapi kualitas 1
+- **daging_sapi_k2** :  harga daging sapi kualitas 2
+- **telur_ayam** : harga rata - rata telur ayam ras segar
+- **telur_ayam_rs** : harga telur ayam ras segar
+- **bawang_merah** : harga rata - rata bawang merah sedang
+- **bawang_merah_sedang** : harga bawang merah sedang
+- **bawang_putih** : harga rata - rata bawang putih ukuran sedang
+- **bawang_putih_sedang** : harga bawang putih ukuran sedang
+- **cabai_merah** : harga rata - rata cabe merah besar dan cabe merah keriting
+- **cabai_merah_besar** : harga cabe merah besar
+- **cabai_merah_keriting** : harga cabe merah keriting
+- **cabai_rawit** : harga rata - rata cabe rawit hijau dan cabe rawit merah
+- **cabai_rawit_hijau** : harga cabe rawit hijau
+- **cabai_rawit_merah** : harga cabe rawit merah
+- **minyak_goreng** : harga rata - rata minyak goreng curah, merk 1, dan merk 2
+- **minyak_goreng_curah** : harga minyak goreng curah
+- **minyak_goreng_merk1** : harga minyak goreng merk 1
+- **minyak_goreng_merk2** : harga minyak goreng merk 2
+- **gula_pasir** : harga rata - rata gula pasir premium dan lokal
+- **gula_pasir_premium** : harga gula pasir premium
+- **gula_pasir_lokal**: harga gula pasir lokal
+
+# **Data Wrangling** 
+
+
+
+```{r message = FALSE, echo=FALSE}
+library(tidyverse)
+library(naniar)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(zoo)
+```
+
+```{r}
+df <- read.csv("food_prices.csv")
+head(df)
+```
+\
+
+## **Eksplorasi Kolom Tanggal**
+\
+Pengubahan tipe data kolom tanggal
+```{r}
+df$tanggal <-dmy(df$tanggal)
+head(df$tanggal)
+```
+
+
+\
+Rentang tanggal dari dataset ini dimulai dari tanggal **4 September 2017** sampai dengan **30 Desember 2020** dengan total **823** baris data
+```{r}
+cat("date range:",first(df$tanggal), "-", last(df$tanggal),
+    "\nnrow:",nrow(df))
+```
+\
+
+Dari hasil penghitungan rentang tanggal awal dan akhir pada dataset, bisa disimpulkan bahwa terdapat data tanggal yang hilang
+```{r}
+difftime(last(df$tanggal)+1,first(df$tanggal),units = "day")
+
+```
+\
+Terdapat **392** baris data yang hilang dari dataset dan belum diketahui alasan data tidak tercatat/hilang
+```{r}
+date_range <- seq(min(df$tanggal), max(df$tanggal+1), by = 1) 
+
+missing_dates <- as.data.frame( date_range[!date_range %in% df$tanggal])
+names(missing_dates)[1] <- "tanggal"
+nrow(missing_dates)
+```
+\
+Memasukkan baris data yang hilang ke dalam dataframe
+```{r}
+df <- merge(df,
+             missing_dates,
+             by="tanggal",
+             all=TRUE)
+df[is.na(df)] <- NA
+head(df)
+```
+\
+Menambahkan kolom nama hari dan tahun
+```{r}
+df$hari <- wday(df$tanggal, label = TRUE,abbr = FALSE)
+df$tahun <-  year(df$tanggal)
+head(df)
+```
+
+\
+Data pada hari Sabtu dan Minggu memiliki nilai NA terbanyak dan dapat disimpulkan karena disebabkan oleh hari libur kerja sehingga tidak dilakukan pencatatan data
+```{r}
+dataNA <- data.frame("tanggal"=df[is.na(df$beras),]$tanggal,
+                      "hari"=df[is.na(df$beras),]$hari)
+summary(dataNA$hari)
+```
+
+\
+Baris data dengan nilai NA selain hari Sabtu dan Minggu terjadi karena disebabkan oleh hari libur nasional
+```{r}
+Weekend <- c("Saturday","Sunday")
+head(dataNA[!(dataNA$hari %in% Weekend),]$tanggal)
+```
+
+\
+
+## **Eksplorasi Kolom Harga Pangan**
+\
+Terdapat nilai string **'-'** (minus) yang perlu diubah menjadi **NA**  
+```{r}
+unique(df$beras)
+```
+
+
+\
+Pengubahan tipe data kolom harga pangan menjadi *integer* \
+dengan pengubahan tipe data menjadi *integer* maka nilai selain angka akan berubah secara paksa menjadi nilai *NA*
+```{r}
+#excludeDates <- sapply(df, class) != "Date"
+#suppressWarnings(df[, excludeDates] <- lapply(df[, excludeDates], as.integer))
+suppressWarnings(df <- df %>% mutate_if(is.character,as.integer))
+head(df)
+```
+
+
+
+## **Persentase Nilai NA Kolom Harga Pangan**
+
+Persentase nilai NA pada kolom harga pangan sebesar **33.1%**
+```{r}
+options(digits=3)
+NaPercentage <- as.data.frame(apply(df, 2, function(col)sum(is.na(col))/length(col)*100))
+names(NaPercentage)[1] <- "Persentase"
+head(NaPercentage)
+```
+
+
+## **Pengisian Nilai NA**
+Pengisian nilai NA (missing values) pada kolom harga pangan menggunakan nilai harga dari hari sebelumnya pada variabel dfNN dan pengisian nilai 0 pada variabel df
+```{r}
+dfNN <- na.locf(na.locf(df), fromLast = TRUE)
+df[is.na(df)] <- 0
+head(data.frame(colSums(is.na(df))))
+```
+
+
+
+# **Data Exploration **
+Analisis akan difokuskan pada data tahun 2018 - 2020 dengan harga rata - rata dari semua kategori bahan pangan sbb: \
+
+- Bawang Merah \
+- Bawang Putih \
+- Cabai Merah \
+
+
+```{r}
+panganNN <- dfNN %>% 
+  select(tanggal,
+         tahun,
+         bawang_merah,
+         bawang_putih, 
+         cabai_merah) %>% 
+  subset((tanggal >= "2018-01-01") & (tanggal <= "2020-12-31"))
+
+pangan <- df %>% 
+  select(tanggal,
+         tahun,
+         bawang_merah,
+         bawang_putih, 
+         cabai_merah) %>% 
+  subset((tanggal >= "2018-01-01") & (tanggal <= "2020-12-31"))
+```
+
+
+
+\
+
+## **Grafik Harga Cabai dan Bawang Kota Bandung (2018 - 2020)**
+```{r, fig.width=20,fig.height=7}
+ggplot(panganNN, aes(x=tanggal)) +
+  geom_line(aes(y = bawang_merah, color = "Bawang Merah"), size = 1) +
+  geom_line(aes(y = bawang_putih, color = "Bawang Putih"), size = 1) +
+  geom_line(aes(y = cabai_merah,  color = "Cabai Merah" ), size = 1) +
+    labs(x = "Bulan",
+         y = "Harga (Rp.)",
+         title = "Grafik Harga Cabai dan Bawang Kota Bandung (2018 - 2020)",
+         color = "")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_y_continuous(breaks = seq(20000, 150000, 10000)) +
+   scale_x_date(date_breaks = "1 month",
+             date_labels = "%b %y")
+
+```
+
+\
+
+## **Harga Tertinggi Tahun 2018 - 2020**
+
+
+### **Harga Cabai Tertinggi**
+harga cabai merah tertinggi pada tahun 2019 meningkat sangat signifikan dibandingkan tahun 2020
+```{r}
+pangan %>% 
+  select(tahun,cabai_merah) %>% 
+  group_by(tahun) %>% 
+  filter(cabai_merah == max(cabai_merah)) %>% unique()
+```
+
+\
+
+### **Harga Bawang Merah**
+harga tertinggi bawang merah mengalami peningkatan sebesar kurang lebih Rp10.000 setiap tahunnya
+```{r}
+pangan %>% 
+  select(tahun,bawang_merah) %>% 
+  group_by(tahun) %>% 
+  filter(bawang_merah == max(bawang_merah)) %>% unique()
+```
+
+
+\
+
+### **Harga Bawang putih**
+sama dengan harga cabai merah,harga tertinggi bawang putih mengalami peningkatan signifikan pada tahun 2019
+```{r}
+pangan %>% 
+  select(tahun,bawang_putih) %>% 
+  group_by(tahun) %>% 
+  filter(bawang_putih == max(bawang_putih)) %>% unique()
+```
+
+
+
+## **Harga Cabai dan Bawang Menjelang Hari Raya Lebaran 2020**
+
+
+```{r}
+H7_2020 <- panganNN %>% 
+  subset((tanggal >= "2020-05-16") & (tanggal <= "2020-05-23"))
+H7_2020
+```
+
+## **Kesimpulan**
+- harga bahan pangan khususnya cabai dan bawang mengalami peningkatan setiap tahunnya dengan kisaran sampai dengan 2x lipat \
+- harga pangan dengan peningkatan terbesar adalah harga cabai merah diikuti dengan bawang putih pada tahun 2019 \
+- Berkaca pada harga cabai dan bawang pada Lebaran 2020, pembelian bahan pangan sebaiknya dilakukan 3 hari s/d 1 minggu sebelum Hari Raya Lebaran
+

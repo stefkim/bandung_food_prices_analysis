@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/749596/218e79fd02db4be98243c02fd178c877
+bundleId: https://api.rpubs.com/api/v1/document/749596/218e79fd02db4be98243c02fd178c877
+url: http://rpubs.com/stefkim/749596
+when: 1617503974.74182
